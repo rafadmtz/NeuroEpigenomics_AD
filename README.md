@@ -1,25 +1,9 @@
-# Dinámica epigenómica durante la progresion del Alzheimer
+# Dinámica epigenómica durante la progresión del Alzheimer
 
-<!--
-AYUDA:
-Escriban el nombre del proyecto. Debe ser breve, específico y fácil de identificar.
-Puede coincidir con el nombre del repositorio.
-
-EJEMPLO:
-# Comparación de genes de resistencia antimicrobiana
--->
-
-[Describan el proyecto en una o dos frases.]
-
+Proyecto exploratorio que busca analizar datos de snATAC-seq (accesibilidad de cromatina a nivel de núcleo único) para rastrear cambios de accesibilidad asociados a la reactivación de elementos transponibles (TEs) en el contexto de la enfermedad de Alzheimer.
 
 Para conocer el planteamiento, las preguntas de investigación, la metodología y
 los resultados, consulta el [reporte del proyecto](docs/reporte-proyecto.md).
-
-<!--
-AYUDA:
-Ajusten la ruta del enlace si el reporte tiene otro nombre o se encuentra en otra
-carpeta. Comprueben que el enlace funcione desde GitHub.
--->
 
 ## Funcionalidades
 
@@ -28,14 +12,10 @@ carpeta. Comprueben que el enlace funcione desde GitHub.
 - [Funcionalidad disponible 3]
 
 <!--
-AYUDA:
-Describan solamente capacidades que ya funcionan. Comiencen cada elemento con un
-verbo. Las funciones planeadas deben registrarse como issues y/o en GitHub Projects.
-
-EJEMPLO:
-- Descarga genomas mediante identificadores de NCBI.
-- Lee archivos FASTA y GFF3.
-- Genera una tabla de presencia y ausencia de genes.
+El proyecto está en una etapa muy temprana. Conforme se desarrolle el pipeline, 
+describan aquí solo las capacidades que ya funcionen (por ejemplo: descarga y 
+preprocesamiento de matrices de snATAC-seq, generación de picos de accesibilidad, 
+cruce con anotaciones de elementos transponibles, etc.).
 -->
 
 ## Estructura del repositorio
@@ -53,12 +33,11 @@ proyecto/
 └── README.md       # Introducción y guía rápida de uso
 ```
 
-<!--
-AYUDA:
-Modifiquen el árbol para que represente su repositorio real y eliminen carpetas
-que no utilicen. Expliquen solamente los elementos principales; no enumeren cada
-archivo. Eviten almacenar datos grandes, usuarios/contraseñas o información sensible.
--->
+## Contexto y motivación
+
+Estudios recientes muestran que, en modelos de tauopatía (ratones PS19) y en cerebros de pacientes con Alzheimer, la agregación de tau desestabiliza la heterocromatina constitutiva marcada por H3K9me3, desplazando a HP1α de los nucleosomas y provocando la erosión de la lámina nuclear. Esta pérdida de condensación reactiva elementos transponibles (principalmente LINE y LTR) normalmente silenciados, generando transcritos de doble cadena que adoptan conformación Z (Z-RNA) y activan a ZBP1, desencadenando necroptosis neuronal (Liu et al., *Nature Neuroscience*, 2026). De manera complementaria, atlas de tipo célula-específicos del tejido cerebral en Alzheimer permiten ubicar estos fenómenos dentro de la diversidad celular del cerebro.
+
+Con base en esto, este proyecto busca usar datos de snATAC-seq para explorar si los cambios de accesibilidad de la cromatina a nivel de núcleo único coinciden con las regiones genómicas donde se localizan estos elementos transponibles, como una forma indirecta de rastrear su posible reactivación durante la progresión de la enfermedad.
 
 ## Requisitos
 
@@ -67,41 +46,23 @@ archivo. Eviten almacenar datos grandes, usuarios/contraseñas o información se
 - [Recurso computacional o condición de acceso]
 
 <!--
-AYUDA:
-Indiquen lo necesario antes de instalar o ejecutar el proyecto: versión de Python,
-sistema operativo si es relevante, memoria, almacenamiento o acceso a servicios.
-
-EJEMPLO:
-- Python 3.12 o posterior.
-- Git.
-- 4 GB de memoria RAM.
-- Conexión a internet para obtener datos.
-
-No registren usuarios, contraseñas, tokens ni llaves privadas-->
-
+Por ejemplo: Python o R, herramientas típicas de snATAC-seq (Signac/ArchR, 
+Cell Ranger ATAC, etc.), anotaciones de elementos transponibles (RepeatMasker), 
+y el poder de cómputo necesario para manejar matrices de accesibilidad de célula única.
+-->
 
 ## Datos
 
-[Expliquen cómo obtener los datos y dónde colocarlos.]
+Los datos de snATAC-seq utilizados provienen del atlas celular de la iniciativa **SEA-AD** (Seattle Alzheimer's Disease Brain Cell Atlas), referenciado en el artículo del atlas celular de Alzheimer incluido en este proyecto.
+
+[Indiquen aquí el comando o enlace de descarga y la carpeta de destino donde deben colocarse los datos.]
 
 <!--
-AYUDA:
-Indiquen la fuente, el comando o enlace de descarga y la carpeta de destino. No
-repitan aquí la descripción completa de muestras, formatos, variables o criterios
-de selección; enlacen el reporte. Si los datos no pueden publicarse, expliquen los
-requisitos y el procedimiento autorizado para acceder a ellos.
-
-EJEMPLO:
-Los datos proceden de NCBI RefSeq. Para descargarlos, ejecuta:
-
-    python scripts/download_data.py
-
-Los archivos se guardarán en data/raw/. Los identificadores, versiones y criterios
-de selección se documentan en docs/reporte-proyecto.md.
+Falta documentar el procedimiento exacto de descarga (portal, versión del 
+dataset, criterios de selección de muestras/donantes) y las anotaciones de 
+elementos transponibles que se vayan a cruzar. La procedencia y características 
+detalladas se describen en el reporte del proyecto.
 -->
-
-La procedencia y características detalladas se describen en el
-[reporte del proyecto](docs/reporte-proyecto.md).
 
 ## Uso
 
@@ -112,20 +73,6 @@ python src/main.py [argumentos]
 ```
 
 [Indiquen dónde se guardan los resultados.]
-
-<!--
-AYUDA:
-Incluyan al menos un ejemplo mínimo que pueda copiarse y ejecutarse. Sustituyan
-los corchetes por valores reales. Expliquen entradas, opciones importantes y
-archivos de salida sin describir toda la metodología.
-
-EJEMPLO:
-Para analizar los identificadores incluidos en data/accessions.txt:
-
-    python src/main.py --input data/accessions.txt --output results/
-
-El comando generará results/gene_matrix.csv y results/heatmap.png.
--->
 
 ## Reproducción de resultados
 
@@ -139,104 +86,27 @@ python src/create_figures.py
 
 Los resultados esperados se generarán en `results/`.
 
-<!--
-AYUDA:
-Proporcionen la ruta más corta para regenerar el resultado principal desde los
-datos originales. Los comandos deben indicar el orden correcto. Si el proceso
-requiere parámetros o archivos de configuración, indíquenlos.
-Las explicaciones científicas e interpretación de resultados pertenecen al reporte.
-
-EJEMPLO:
-Después de ejecutar los tres comandos se crearán la tabla comparativa y las
-figuras utilizadas en el reporte. Sus nombres esperados deben indicarse aquí.
--->
-
-
 ## Documentación
 
 - [Reporte del proyecto](docs/reporte-proyecto.md)
 - [Información para citar el software](CITATION.cff)
 
-<!--
-AYUDA:
-Incluyan únicamente documentos que existan y comprueben sus enlaces. Agreguen
-otros documentos sólo si evitan que el README sea demasiado extenso.
-
-EJEMPLO:
-- El reporte contiene el problema, las preguntas, la metodología y los resultados.
--->
-
 ## Equipo
 
-- [Nombre completo] — [Contribución o responsabilidad general]
-- [Nombre completo] — [Contribución o responsabilidad general]
-- [Nombre completo] — [Contribución o responsabilidad general]
-
-<!--
-AYUDA:
-Identifiquen a las tres personas. Describan brevemente sus contribuciones generales.
-Las actividades específicas y revisiones se consultan en los issues, Pull Requests,
-GitHub Projects y el historial de Git.
-
-EJEMPLO:
-- Ana Pérez — procesamiento de datos y pruebas.
-- Luis López — análisis y visualización.
-- María García — documentación e integración.
--->
+- Rafael Díaz Martínez — [Contribución o responsabilidad general]
+- Santiago Martínez Enciso — [Contribución o responsabilidad general]
+- Sixto Nezahualcoyotl Gonzales Morales — [Contribución o responsabilidad general]
 
 ## Citación
 
 Si utilizas este software, consulta [CITATION.cff](CITATION.cff) o la opción
 **Cite this repository** de GitHub.
 
-<!--
-AYUDA:
-Mantengan CITATION.cff actualizado con autores, título y versión. Si el proyecto
-obtiene un DOI, añadan aquí la referencia recomendada.
-
-EJEMPLO:
-La forma recomendada de citar la versión v1.0.0 se encuentra en CITATION.cff.
--->
-
 ## Licencia
 
 [Indiquen el nombre de la licencia.] Consulta [LICENSE](LICENSE) para conocer
 los términos de uso.
 
-<!--
-AYUDA:
-Especifiquen la licencia del código y asegúrense de incluir el archivo LICENSE.
-Las condiciones de uso de los datos pueden ser distintas y deben indicarse en la
-sección Datos y en el reporte.
-
-EJEMPLO:
-El código se distribuye bajo la licencia MIT. Consulta LICENSE.
--->
-
 ## Agradecimientos
 
 [Incluyan reconocimientos institucionales o académicos]
-
-<!--
-AYUDA:
-Esta sección es opcional. Reconozcan laboratorios, docentes, instituciones,
-proyectos o financiamientos que apoyaron el trabajo. No incluyan como autores a
-personas que sólo deban aparecer en los agradecimientos.
-
-EJEMPLO:
-Proyecto desarrollado en la Licenciatura en Ciencias Genómicas, UNAM, como parte
-de la asignatura [nombre].
--->
-
----
-
-<!--
-LISTA DE COMPROBACIÓN ANTES DE ENTREGAR:
-- [ ] Se eliminaron o sustituyeron todos los textos entre corchetes.
-- [ ] Los enlaces funcionan desde GitHub.
-- [ ] Los comandos fueron probados en un ambiente limpio.
-- [ ] El README permite instalar y ejecutar un ejemplo.
-- [ ] No se incluyeron credenciales ni información sensible.
-- [ ] El reporte contiene la explicación científica y evita duplicar el README.
-- [ ] La versión, la licencia y la información de citación están actualizadas.
--->
