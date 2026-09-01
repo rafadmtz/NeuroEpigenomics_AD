@@ -9,7 +9,7 @@ EJEMPLO:
 # Comparación de genes de resistencia antimicrobiana
 -->
 
-[Describan el proyecto en una o dos frases.]
+[Epigenomica enfermedad de Alzheimer.]
 
 
 Para conocer el planteamiento, las preguntas de investigación, la metodología y
