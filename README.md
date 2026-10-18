@@ -66,7 +66,28 @@ detalladas se describen en el reporte del proyecto.
 
 ## Uso
 
-[Expliquen qué hace el siguiente comando y qué entradas necesita.]
+### Creación del entorno
+
+El código fuente hace uso de una variedad de dependencias para funcionar correctamente. Para ello es nescesario inicializar el entorno de trabajo dentro del repositorio.
+
+**Instrucciones:**
+
+- Acceder a la terminal y desde la raiz del directorio `NeuroEpigenomics_AD/` ejecutar:
+```bash
+conda env create -f environment.yml
+```
+
+- Para activar el entorno y antes de correr cualquier script en `@src/`, ejecutar:
+```bash
+conda activate neuroAD
+```
+
+- Finalmente tras correr los scripts, no olvidar desactivar el entorno con: 
+```bash
+conda deactivate
+```
+
+### 
 
 ```bash
 python src/main.py [argumentos]
