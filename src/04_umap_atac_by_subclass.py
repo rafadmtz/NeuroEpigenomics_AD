@@ -38,7 +38,7 @@ from scipy import sparse
 import matplotlib.pyplot as plt
 from importlib import import_module
 
-module = import_module("03_group_atac_by_condition_and_subclass")
+module = import_module("02_group_atac_by_condition_and_subclass")
 load_scanpy = module.load_scanpy
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
