@@ -1,133 +1,175 @@
-# Dinámica epigenómica durante la progresión del Alzheimer
+# Epigenomic dynamics during Alzheimer's disease progression
 
-Proyecto exploratorio que busca analizar datos de snATAC-seq (accesibilidad de cromatina a nivel de núcleo único) para rastrear cambios de accesibilidad asociados a la reactivación de elementos transponibles (TEs) en el contexto de la enfermedad de Alzheimer.
+Exploratory project that analyzes single-nucleus ATAC-seq (snATAC-seq) data to
+track chromatin accessibility changes associated with the reactivation of
+transposable elements (TEs) in Alzheimer's disease (AD).
 
-Para conocer el planteamiento, las preguntas de investigación, la metodología y
-los resultados, consulta el [reporte del proyecto](docs/reporte-proyecto.md).
+For the project rationale, research questions, methodology and results, see the
+[project report](docs/reporte-proyecto.md).
 
-## Funcionalidades
+## Features
 
-- [Funcionalidad disponible 1]
-- [Funcionalidad disponible 2]
-- [Funcionalidad disponible 3]
+- Download of the SEA-AD snATAC-seq dataset (middle temporal gyrus, MTG), its
+  nucleus metadata and the RepeatMasker hg38 annotation.
+- Merging and validation of nucleus metadata, definition of AD
+  neuropathological change (ADNC) groups and a per-donor clinical table.
+- Export of ATAC peak coordinates in BED format for intersection with
+  RepeatMasker.
+- Splitting of the count matrix into one file per ADNC category and cell
+  subclass.
+- Per-donor pseudobulk aggregation by subclass, with quality-control plots.
+- De novo UMAP embeddings of the L2/3 IT, Sst and Vip subclasses with SnapATAC2.
 
-<!--
-El proyecto está en una etapa muy temprana. Conforme se desarrolle el pipeline, 
-describan aquí solo las capacidades que ya funcionen (por ejemplo: descarga y 
-preprocesamiento de matrices de snATAC-seq, generación de picos de accesibilidad, 
-cruce con anotaciones de elementos transponibles, etc.).
--->
-
-## Estructura del repositorio
+## Repository structure
 
 ```text
-proyecto/
-├── data/           # Datos de ejemplo o archivos pequeños
-├── docs/           # Reporte y documentación
-├── notebooks/      # Análisis exploratorios
-├── results/        # Tablas y figuras generadas
-├── src/            # Código fuente
-├── tests/          # Pruebas
-├── CITATION.cff    # Información para citar el software
-├── LICENSE         # Licencia
-└── README.md       # Introducción y guía rápida de uso
+NeuroEpigenomics_AD/
+├── data/            # Local data (large files are not tracked by Git)
+├── docs/            # Report and documentation
+├── notebooks/       # Exploratory analyses
+├── results/         # Generated tables and figures
+├── src/             # Source code (pipeline scripts)
+├── tests/           # Tests
+├── environment.yml  # Conda environment definition
+├── CITATION.cff     # Citation metadata
+├── LICENSE          # License
+└── README.md        # Introduction and quick-start guide
 ```
 
-## Contexto y motivación
+## Background and motivation
 
-Estudios recientes muestran que, en modelos de tauopatía (ratones PS19) y en cerebros de pacientes con Alzheimer, la agregación de tau desestabiliza la heterocromatina constitutiva marcada por H3K9me3, desplazando a HP1α de los nucleosomas y provocando la erosión de la lámina nuclear. Esta pérdida de condensación reactiva elementos transponibles (principalmente LINE y LTR) normalmente silenciados, generando transcritos de doble cadena que adoptan conformación Z (Z-RNA) y activan a ZBP1, desencadenando necroptosis neuronal (Liu et al., *Nature Neuroscience*, 2026). De manera complementaria, atlas de tipo célula-específicos del tejido cerebral en Alzheimer permiten ubicar estos fenómenos dentro de la diversidad celular del cerebro.
+Recent studies show that, in tauopathy models (PS19 mice) and in brains of
+patients with AD, tau aggregation destabilizes H3K9me3-marked constitutive
+heterochromatin, displacing HP1α from nucleosomes and eroding the nuclear
+lamina. This loss of condensation reactivates normally silenced transposable
+elements (mainly LINE and LTR), producing double-stranded transcripts that adopt
+a Z conformation (Z-RNA) and activate ZBP1, triggering neuronal necroptosis
+(Liu et al., *Nature Neuroscience*, 2026). In parallel, cell type-specific
+atlases of AD brain tissue make it possible to place these phenomena within the
+cellular diversity of the brain.
 
-Con base en esto, este proyecto busca usar datos de snATAC-seq para explorar si los cambios de accesibilidad de la cromatina a nivel de núcleo único coinciden con las regiones genómicas donde se localizan estos elementos transponibles, como una forma indirecta de rastrear su posible reactivación durante la progresión de la enfermedad.
+Building on this, the project uses snATAC-seq data to explore whether chromatin
+accessibility changes at single-nucleus resolution overlap the genomic regions
+where these transposable elements are located, as an indirect way to track their
+possible reactivation during disease progression.
 
-## Requisitos
+## Requirements
 
-- [Lenguaje y versión]
-- [Herramienta o biblioteca indispensable]
-- [Recurso computacional o condición de acceso]
+All dependencies are listed in [`environment.yml`](environment.yml) and are
+installed when the Conda environment is created (see [Usage](#usage)). The main
+ones are Python 3.11, scanpy, anndata, SnapATAC2, pandas, NumPy, SciPy, h5py,
+joblib and matplotlib.
 
-<!--
-Por ejemplo: Python o R, herramientas típicas de snATAC-seq (Signac/ArchR, 
-Cell Ranger ATAC, etc.), anotaciones de elementos transponibles (RepeatMasker), 
-y el poder de cómputo necesario para manejar matrices de accesibilidad de célula única.
--->
+The input `.h5ad` file is about 18 GB, so the pipeline is designed to run on a
+server; the pseudobulk step is tuned for roughly 64 GB of RAM.
 
-## Datos
+## Data
 
-Los datos de snATAC-seq utilizados provienen del atlas celular de la iniciativa **SEA-AD** (Seattle Alzheimer's Disease Brain Cell Atlas), referenciado en el artículo del atlas celular de Alzheimer incluido en este proyecto.
+The snATAC-seq data come from the **SEA-AD** (Seattle Alzheimer's Disease Brain
+Cell Atlas) initiative, described in Gabitto *et al.* (2024). The download script
+retrieves the following files from the public AWS S3 bucket
+`sea-ad-single-cell-profiling` and from UCSC:
 
-[Indiquen aquí el comando o enlace de descarga y la carpeta de destino donde deben colocarse los datos.]
+| File | Source | Destination |
+|---|---|---|
+| `SEAAD_MTG_ATACseq_final-nuclei.2024-12-06.h5ad` | SEA-AD (MTG, final nuclei) | `data/` |
+| `SEAAD_MTG_ATACseq_all-nuclei_metadata.2024-12-06.csv` | SEA-AD (all-nuclei metadata) | `data/metadata/` |
+| `rmsk.txt.gz` | UCSC Genome Browser, RepeatMasker hg38 | `data/` |
 
-<!--
-Falta documentar el procedimiento exacto de descarga (portal, versión del 
-dataset, criterios de selección de muestras/donantes) y las anotaciones de 
-elementos transponibles que se vayan a cruzar. La procedencia y características 
-detalladas se describen en el reporte del proyecto.
--->
+No primary SEA-AD data are redistributed through this repository. Users are
+responsible for complying with the access conditions, licenses and citation
+requirements of the original datasets.
 
-## Uso
+## Usage
 
-### Creación del entorno
+### Environment setup
 
-El código fuente hace uso de una variedad de dependencias para funcionar correctamente. Para ello es nescesario inicializar el entorno de trabajo dentro del repositorio.
+From the root of the `NeuroEpigenomics_AD/` directory, create the environment:
 
-**Instrucciones:**
-
-- Acceder a la terminal y desde la raiz del directorio `NeuroEpigenomics_AD/` ejecutar:
 ```bash
 conda env create -f environment.yml
 ```
 
-- Para activar el entorno y antes de correr cualquier script en `@src/`, ejecutar:
+Activate it before running any script in `src/`:
+
 ```bash
 conda activate neuroAD
 ```
 
-- Finalmente tras correr los scripts, no olvidar desactivar el entorno con: 
+Deactivate it when you are done:
+
 ```bash
 conda deactivate
 ```
 
-### 
+### Running the pipeline
+
+Run the scripts from the repository root, in this order:
 
 ```bash
-python src/main.py [argumentos]
+python src/00_descargar_datos.py
+python src/01_analisis_metadatos.py
+python src/01b_graficos_datos_filtrados.py
+python src/02_group_atac_by_condition_and_subclass.py
+python src/03_pseudobulk_by_donor.py
+python src/04_umap_atac_by_subclass.py
 ```
 
-[Indiquen dónde se guardan los resultados.]
-
-## Reproducción de resultados
-
-Ejecuten los siguientes pasos en el orden indicado:
+The longer steps can be run in the background while saving a log, for example:
 
 ```bash
-python scripts/download_data.py
-python src/run_analysis.py
-python src/create_figures.py
+nohup python -u src/03_pseudobulk_by_donor.py > logs/03_pseudobulk_by_donor.log 2>&1 &
 ```
 
-Los resultados esperados se generarán en `results/`.
+Each script can also be imported as a module and run through its `main()`
+function.
 
-## Documentación
+## Outputs
 
-- [Reporte del proyecto](docs/reporte-proyecto.md)
-- [Información para citar el software](CITATION.cff)
+| Step | Output | Location |
+|---|---|---|
+| `01_analisis_metadatos.py` | Per-nucleus metadata, per-donor clinical table, ATAC peak BED file and log | `results/01_metadata_output/` |
+| `01b_graficos_datos_filtrados.py` | Subclass and supertype composition plots | `results/01b_graficas/` |
+| `02_group_atac_by_condition_and_subclass.py` | One `.h5ad` per ADNC category × subclass | `data/processed/` |
+| `03_pseudobulk_by_donor.py` | Per-subclass pseudobulk `.h5ad`, sample table (colData) and summary | `data/processed/pseudobulk/` |
+| `03_pseudobulk_by_donor.py` | Pseudobulk QC plots | `results/figures/pseudobulk/` |
+| `04_umap_atac_by_subclass.py` | UMAPs by subclass, supertype, total counts and ADNC category | `results/figures/` |
 
-## Equipo
+## Documentation
 
-- Rafael Díaz Martínez — [Contribución o responsabilidad general]
-- Santiago Martínez Enciso — [Contribución o responsabilidad general]
-- Sixto Nezahualcoyotl Gonzales Morales — [Contribución o responsabilidad general]
+- [Project report](docs/reporte-proyecto.md)
+- [Citation metadata](CITATION.cff)
 
-## Citación
+## Team
 
-Si utilizas este software, consulta [CITATION.cff](CITATION.cff) o la opción
-**Cite this repository** de GitHub.
+- Rafael Díaz Martínez
+- Santiago Martínez Enciso
+- Sixto Nezahualcoyotl Gonzales Morales
 
-## Licencia
+## Citation
 
-[Indiquen el nombre de la licencia.] Consulta [LICENSE](LICENSE) para conocer
-los términos de uso.
+This software is under active development. If you use it before a formal
+release or associated publication is available, please cite the repository:
 
-## Agradecimientos
+> Díaz Martínez, R., Martínez Enciso, S. and Gonzales Morales, S. N. (2026).
+> *NeuroEpigenomics_AD: Epigenomic dynamics during Alzheimer's disease
+> progression*. GitHub repository.
+> [https://github.com/rafadmtz/NeuroEpigenomics_AD](https://github.com/rafadmtz/NeuroEpigenomics_AD)
 
-[Incluyan reconocimientos institucionales o académicos]
+Citation metadata are provided in [CITATION.cff](CITATION.cff); GitHub uses
+this file to show the **Cite this repository** option on the repository page.
+
+If you use the SEA-AD data, please also cite the original atlas:
+
+> Gabitto, M. I. *et al.* Integrated multimodal cell atlas of Alzheimer's
+> disease. *Nature Neuroscience* **27**, 2366–2383 (2024).
+> [https://doi.org/10.1038/s41593-024-01774-5](https://doi.org/10.1038/s41593-024-01774-5)
+
+This section will be updated with a versioned DOI and a publication citation
+when they become available.
+
+## License
+
+The source code in this repository is distributed under the
+[MIT License](LICENSE). External tools and datasets (SEA-AD, RepeatMasker/UCSC)
+remain subject to their respective licenses and terms of use.
