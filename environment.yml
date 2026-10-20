@@ -1,0 +1,16 @@
+name: neuroAD
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - h5py
+  - anndata
+  - scanpy
+  - matplotlib
+  - joblib
+  - ipykernel
+  - snapatac2
