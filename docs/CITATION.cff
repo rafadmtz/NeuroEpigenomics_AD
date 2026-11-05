@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "NeuroEpigenomics_AD: Epigenomic dynamics during Alzheimer's disease progression"
+abstract: >-
+  Pipeline to analyze snATAC-seq data from the SEA-AD atlas and track
+  chromatin accessibility changes associated with the reactivation of
+  transposable elements across Alzheimer's disease progression.
+type: software
+authors:
+  - family-names: "Díaz Martínez"
+    given-names: "Rafael"
+  - family-names: "Martínez Enciso"
+    given-names: "Santiago"
+  - family-names: "Gonzales Morales"
+    given-names: "Sixto Nezahualcoyotl"
+repository-code: "https://github.com/rafadmtz/NeuroEpigenomics_AD"
+license: MIT
+date-released: "2026-10-19"
+keywords:
+  - Alzheimer
+  - snATAC-seq
+  - transposable elements
+  - SEA-AD
+  - chromatin accessibility
+references:
+  - type: article
+    title: "Integrated multimodal cell atlas of Alzheimer's disease"
+    authors:
+      - family-names: "Gabitto"
+        given-names: "Mariano I."
+      - name: "et al."
+    journal: "Nature Neuroscience"
+    volume: 27
+    start: 2366
+    end: 2383
+    year: 2024
+    doi: "10.1038/s41593-024-01774-5"

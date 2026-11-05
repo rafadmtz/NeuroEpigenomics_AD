@@ -1,3 +1,5 @@
 # Insert todo a ignorar
 data/
 logs/
+results/
+__pycache__/
