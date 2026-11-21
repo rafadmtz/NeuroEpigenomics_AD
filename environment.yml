@@ -1,6 +1,7 @@
 name: neuroAD
 channels:
   - conda-forge
+  - bioconda 
   - defaults
 dependencies:
   - python=3.11
@@ -14,3 +15,4 @@ dependencies:
   - joblib
   - ipykernel
   - snapatac2
+  - bedtools
