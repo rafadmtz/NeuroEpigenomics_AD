@@ -37,8 +37,8 @@ from anndata._io.specs import read_elem
 from joblib import Parallel, delayed
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-INPUT_FILE = PROJECT_ROOT / "data" / "SEAAD_MTG_ATACseq_final-nuclei.2024-12-06.h5ad"
-OUTPUT_DIR = PROJECT_ROOT / "data" / "processed"
+INPUT_FILE = PROJECT_ROOT  / "data" / "SEAAD_MTG_ATACseq_final-nuclei.2024-12-06.h5ad"
+OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "condition_subclass_grouped"
 
 GROUPS= ["Not AD", "Low", "Intermediate", "High"]
 
@@ -106,6 +106,8 @@ def save_matrix_patient_type(row, path, output_dir) -> None:
     
     condition = row["Overall AD neuropathological Change"].replace(" ", "_")
     subclass = row["Subclass"].replace(" ", "-").replace("/", "-")
+
+    unique_adata.obs.columns = unique_adata.obs.columns.str.replace("/", "-", regex=False)
     
     unique_adata.write_h5ad(
         output_dir / f"{condition}_{subclass}.h5ad",
