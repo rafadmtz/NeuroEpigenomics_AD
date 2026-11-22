@@ -16,3 +16,4 @@ dependencies:
   - ipykernel
   - snapatac2
   - bedtools
+  - pydeseq2
