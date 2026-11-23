@@ -9,7 +9,10 @@ Downloads to the server:
   2. SEA-AD metadata (middle temporal gyrus) and controls, in CSV format.
   3. Transposable elements annotation from RepeatMasker (UCSC hg38), in
      the same coordinates (GRCh38, chromosomes chr1, chr2...) as SEA-AD.
-
+  4. Reference genome sequence (UCSC hg38 FASTA), in the same coordinates
+     (GRCh38, chromosomes chr1, chr2...) as SEA-AD. Used to compute the GC
+     content of the accessibility peaks (bedtools nuc).
+     
 SEA-AD Source: AWS S3 public bucket "sea-ad-single-cell-profiling"
 (Gabitto et al. 2024, Nat Neurosci, "Data availability" section).
 
@@ -41,9 +44,14 @@ VERSION_SEAAD_METADATA= "2024-12-06"
 URL_REPEATMASKER= "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/rmsk.txt.gz"
 VERSION_RMSK= "RepeatMasker 3.0.1, RepBase 2010-03-02, UCSC hg38 rmsk table"
 
+URL_HG38_FASTA= "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
+VERSION_HG38= "UCSC hg38 (GRCh38) genome FASTA"
+
 DATA_OUTPUT_DIR = "data/"
 
 METADATA_OUTPUT_DIR = "data/metadata/"
+
+GENOME_OUTPUT_DIR = "data/genome/"
 
 #==================================================
 # Functions
@@ -70,6 +78,8 @@ def main():
     seaad_filename = os.path.join(DATA_OUTPUT_DIR, f"SEAAD_MTG_ATACseq_final-nuclei.{VERSION_SEAAD}.h5ad")
     seaad_metadata_filename = os.path.join(METADATA_OUTPUT_DIR, f"SEAAD_MTG_ATACseq_all-nuclei_metadata.{VERSION_SEAAD_METADATA}.csv")
     repeatmasker_filename = os.path.join(DATA_OUTPUT_DIR, f"rmsk.txt.gz")
+    hg38_filename_gz = os.path.join(GENOME_OUTPUT_DIR, "hg38.fa.gz")
+    hg38_filename = os.path.join(GENOME_OUTPUT_DIR, "hg38.fa")
     
     try:
         if not os.path.exists(seaad_filename):
@@ -81,6 +91,10 @@ def main():
         if not os.path.exists(repeatmasker_filename):
             print(f"Downloading RepeatMasker annotation to {repeatmasker_filename}...")
             download(URL_REPEATMASKER, repeatmasker_filename)
+        if not os.path.exists(hg38_filename):
+            print(f"Downloading hg38 reference genome to {hg38_filename}...")
+            download(URL_HG38_FASTA, hg38_filename_gz)
+            subprocess.run(["gunzip", hg38_filename_gz], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Download error: {e}")
         print("Check your internet connection or the file URL.")
