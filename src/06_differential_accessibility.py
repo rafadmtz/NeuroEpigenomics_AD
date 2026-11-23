@@ -100,22 +100,48 @@ PEAK_RE = re.compile(r"^(chr[\w]+)[:\-](\d+)[:\-](\d+)$")
 # Functions
 #==================================================
 def log_print(msg):
-    """Prints a message and appends it to the log file."""
+    """
+    Print a message and append it to the log file.
+
+    Args:
+        msg: Text to print and log.
+
+    Returns:
+        None
+    """
     print(msg)
     with open(LOG_PATH, "a") as f:
         f.write(msg + "\n")
 
 
 def subclass_name(path: Path) -> str:
-    """Recover the subclass label from a pseudobulk file."""
+    """
+    Recover the original subclass label from a pseudobulk file (file names use
+    a sanitized version, e.g. "L2-3-IT" for "L2/3 IT").
+
+    Args:
+        path: Path to a pseudobulk_{subclass}.h5ad file from step 03.
+
+    Returns:
+        str: Subclass label as stored in the "subclass" column of obs.
+    """
     obs = ad.read_h5ad(path, backed="r").obs
     return str(obs["subclass"].iloc[0])
 
 
 def load_pseudobulk(path: Path):
     """
-    Load one pseudobulk file into a counts DataFrame (donors x peaks, int) and a
-    design metadata DataFrame (sex, age, pmi, condition, stage).
+    Load one pseudobulk file and prepare the inputs for PyDESeq2. Age and PMI
+    are converted to numeric and z-scored; stage is the condition coded 0-3.
+
+    Args:
+        path: Path to a pseudobulk_{subclass}.h5ad file from step 03.
+
+    Returns:
+        tuple:
+            - pd.DataFrame: Counts, donors x peaks, int64.
+            - pd.DataFrame: Design metadata indexed by donor, with sex, age,
+              pmi, condition (categorical, "Not AD" first) and stage (0-3).
     """
     pb = ad.read_h5ad(path)
     donors = pb.obs_names.astype(str)
@@ -139,26 +165,66 @@ def load_pseudobulk(path: Path):
 
 
 def donors_per_condition(meta: pd.DataFrame) -> pd.Series:
-    """Number of donors in each condition, in GROUPS order."""
+    """
+    Count the donors in each condition.
+
+    Args:
+        meta: Design metadata, as returned by load_pseudobulk.
+
+    Returns:
+        pd.Series: Number of donors per condition, in GROUPS order (0 if absent).
+    """
     return meta["condition"].value_counts().reindex(GROUPS, fill_value=0)
 
 
 def filter_peaks(counts: pd.DataFrame, n_min: int) -> pd.DataFrame:
-    """Keep peaks with >= MIN_COUNT counts in at least n_min donors."""
+    """
+    Keep peaks with enough signal to be tested.
+
+    Args:
+        counts: Counts, donors x peaks.
+        n_min: Minimum number of donors (the size of the smallest condition group).
+
+    Returns:
+        pd.DataFrame: Counts restricted to peaks with >= MIN_COUNT counts in at
+            least n_min donors.
+    """
     keep = (counts >= MIN_COUNT).sum(axis=0) >= n_min
     return counts.loc[:, keep]
 
 
 def build_design(meta: pd.DataFrame, term: str) -> str:
-    """Design formula; drops covariates without variation in this subclass."""
+    """
+    Build the design formula. Covariates without variation in this subclass
+    (e.g. a single sex) are left out.
+
+    Args:
+        meta: Design metadata, as returned by load_pseudobulk.
+        term: Variable of interest, "stage" or "condition".
+
+    Returns:
+        str: Formula such as "~sex + age + pmi + stage".
+    """
     covs = [c for c in ("sex", "age", "pmi") if meta[c].nunique() > 1]
     return "~" + " + ".join(covs + [term])
 
 
 def run_contrast(counts, meta, contrast_name):
     """
-    Fit one PyDESeq2 model and return (results DataFrame, fitted dds).
-    Results keep the MLE log2FC and add the apeGLM-shrunk log2FC.
+    Fit one PyDESeq2 model and run the Wald test for one contrast.
+
+    Args:
+        counts: Filtered counts, donors x peaks.
+        meta: Design metadata, as returned by load_pseudobulk.
+        contrast_name: "trend" (stage as a continuous variable) or
+            "High_vs_NotAD" (condition as a factor, "Not AD" as reference).
+
+    Returns:
+        tuple:
+            - pd.DataFrame: One row per peak (index = peak_id) with baseMean,
+              log2FoldChange (MLE), lfcSE, stat, pvalue, padj and
+              log2FC_shrunk (apeGLM shrinkage).
+            - DeseqDataSet: The fitted model (size factors, dispersions).
     """
     if contrast_name == "trend":
         design = build_design(meta, "stage")
@@ -187,7 +253,16 @@ def run_contrast(counts, meta, contrast_name):
 
 
 def format_results(res: pd.DataFrame) -> pd.DataFrame:
-    """Add peak coordinates and order the columns."""
+    """
+    Turn the peak index into columns and add the peak coordinates.
+
+    Args:
+        res: Results of run_contrast, indexed by peak_id.
+
+    Returns:
+        pd.DataFrame: Columns peak_id, chr, start, end, baseMean,
+            log2FoldChange, lfcSE, stat, pvalue, padj, log2FC_shrunk.
+    """
     out = res.rename_axis("peak_id").reset_index()
     coords = out["peak_id"].str.extract(PEAK_RE)
     out.insert(1, "chr", coords[0])
@@ -198,7 +273,22 @@ def format_results(res: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_vst(dds, meta: pd.DataFrame, safe: str) -> np.ndarray:
-    """Blind VST of the tested peaks, saved as donors x peaks .h5ad."""
+    """
+    Compute the variance-stabilizing transformation (blind to the design) of
+    the tested peaks and save it.
+
+    Args:
+        dds: Fitted DeseqDataSet (the factor model).
+        meta: Design metadata, as returned by load_pseudobulk.
+        safe: Sanitized subclass name used in file names.
+
+    Returns:
+        np.ndarray: VST values, donors x tested peaks, float32.
+
+    Writes:
+        vst_{safe}.h5ad: VST values in X, design metadata and size_factors in
+            obs, peak IDs in var.
+    """
     dds.vst(use_design=False)
     vst = np.asarray(dds.layers["vst_counts"], dtype=np.float32)
     obs = meta.copy()
@@ -217,7 +307,22 @@ COND_COLORS = dict(zip(GROUPS, ["#4C78A8", "#F2B701", "#E45756", "#72241B"]))
 
 
 def plot_pca(vst: np.ndarray, meta: pd.DataFrame, subclass: str, safe: str):
-    """PCA of donors on the most variable VST peaks, by condition and by sex."""
+    """
+    PCA of the donors on the N_TOP_VAR_PCA most variable VST peaks, colored by
+    condition and by sex. Used to spot outlier donors and batch-like effects.
+
+    Args:
+        vst: VST values, donors x peaks, as returned by write_vst.
+        meta: Design metadata, as returned by load_pseudobulk.
+        subclass: Subclass name, for the titles.
+        safe: Sanitized subclass name used in file names.
+
+    Returns:
+        None
+
+    Writes:
+        pca_{safe}.png
+    """
     top = np.argsort(vst.var(axis=0))[::-1][:N_TOP_VAR_PCA]
     mat = vst[:, top] - vst[:, top].mean(axis=0)
     u, s, _ = np.linalg.svd(mat, full_matrices=False)
@@ -243,7 +348,21 @@ def plot_pca(vst: np.ndarray, meta: pd.DataFrame, subclass: str, safe: str):
 
 
 def plot_volcano(results: dict, subclass: str, safe: str):
-    """Volcano (shrunk log2FC vs -log10 padj) for both contrasts."""
+    """
+    Volcano plot (shrunk log2FC vs -log10 padj) for both contrasts, with
+    significant peaks colored by direction.
+
+    Args:
+        results: Formatted results per contrast name (keys of CONTRASTS).
+        subclass: Subclass name, for the titles.
+        safe: Sanitized subclass name used in file names.
+
+    Returns:
+        None
+
+    Writes:
+        volcano_{safe}.png
+    """
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     for axis, name in zip(axes, CONTRASTS):
         res = results[name].dropna(subset=["padj"])
@@ -268,7 +387,21 @@ def plot_volcano(results: dict, subclass: str, safe: str):
 
 
 def plot_ma(results: dict, subclass: str, safe: str):
-    """MA plot (baseMean vs shrunk log2FC) for both contrasts."""
+    """
+    MA plot (baseMean vs shrunk log2FC) for both contrasts. Used to check that
+    changes do not depend on the signal level of the peak.
+
+    Args:
+        results: Formatted results per contrast name (keys of CONTRASTS).
+        subclass: Subclass name, for the titles.
+        safe: Sanitized subclass name used in file names.
+
+    Returns:
+        None
+
+    Writes:
+        ma_{safe}.png
+    """
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     for axis, name in zip(axes, CONTRASTS):
         res = results[name]
@@ -289,7 +422,21 @@ def plot_ma(results: dict, subclass: str, safe: str):
 
 
 def plot_dispersion(dds, subclass: str, safe: str):
-    """Gene-wise, fitted and final dispersions against mean accessibility."""
+    """
+    Plot the per-peak, fitted-trend and final dispersions against mean
+    accessibility. Used to check the fit of the model.
+
+    Args:
+        dds: Fitted DeseqDataSet (the factor model).
+        subclass: Subclass name, for the title.
+        safe: Sanitized subclass name used in file names.
+
+    Returns:
+        None
+
+    Writes:
+        dispersion_{safe}.png
+    """
     var = dds.var
     order = np.argsort(var["_normed_means"].to_numpy())
     fig, axis = plt.subplots(figsize=(6, 4.5))
@@ -312,7 +459,19 @@ def plot_dispersion(dds, subclass: str, safe: str):
 
 
 def plot_n_significant(summary: pd.DataFrame):
-    """Significant peaks up/down per subclass, one panel per contrast."""
+    """
+    Bar plot of significant peaks up/down per subclass, one panel per contrast.
+    Only subclasses with status "ok" are drawn.
+
+    Args:
+        summary: Summary table (one row per subclass x contrast).
+
+    Returns:
+        None
+
+    Writes:
+        n_significant_per_subclass.png
+    """
     ok = summary[summary["status"] == "ok"]
     if ok.empty:
         return
@@ -337,7 +496,24 @@ def plot_n_significant(summary: pd.DataFrame):
 # Per-subclass pipeline
 #==================================================
 def analyse_subclass(path: Path) -> list:
-    """Run both contrasts for one subclass; return summary rows."""
+    """
+    Run the full analysis for one subclass: donor check, peak filter, both
+    contrasts, VST and figures. Subclasses with fewer than
+    MIN_DONORS_PER_CONDITION donors in any condition are skipped.
+
+    Args:
+        path: Path to a pseudobulk_{subclass}.h5ad file from step 03.
+
+    Returns:
+        list: One summary dict per contrast with subclass, donors per
+            condition, peaks total/tested/filtered, significant peaks up/down,
+            status ("ok" or "skipped") and reason.
+
+    Writes:
+        da_{safe}_trend.csv.gz, da_{safe}_High_vs_NotAD.csv.gz and
+            vst_{safe}.h5ad in OUT_DIR; pca, volcano, ma and dispersion
+            figures in FIG_DIR.
+    """
     subclass = subclass_name(path)
     safe = path.stem.replace("pseudobulk_", "")
     counts, meta = load_pseudobulk(path)
@@ -389,6 +565,21 @@ def analyse_subclass(path: Path) -> list:
 # Main
 #==================================================
 def main():
+    """
+    Run the differential accessibility analysis for every pseudobulk file.
+    A failing subclass is logged and the run continues with the next one.
+
+    Args:
+        None. Paths and parameters are the module constants.
+
+    Returns:
+        None
+
+    Writes:
+        In OUT_DIR: per-subclass outputs of analyse_subclass, da_summary.csv
+            (rewritten after every subclass) and 06_da_log.txt.
+        In FIG_DIR: per-subclass figures and n_significant_per_subclass.png.
+    """
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     with open(LOG_PATH, "w") as f:

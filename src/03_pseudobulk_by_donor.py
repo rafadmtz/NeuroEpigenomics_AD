@@ -1,4 +1,4 @@
-
+    
 """
 03_pseudobulk_by_donor.py
 ==========================================================================
@@ -95,14 +95,36 @@ MEM_BUDGET_GB = 8.0
 # IO helpers
 # ==================================================
 def load_metadata(path: Path) -> pd.DataFrame:
-    """Read only the nucleus metadata (obs) from a local .h5ad file."""
+    """
+    Read only the nucleus metadata (obs) from a local .h5ad file, without
+    loading the count matrix.
+
+    Args:
+        path: Path to the .h5ad file.
+
+    Returns:
+        pd.DataFrame: Nucleus metadata, one row per nucleus, indexed by nucleus ID.
+    """
     with h5py.File(path, "r") as f:
         obs = read_elem(f["obs"])
     return obs
 
 
 def check_columns(obs: pd.DataFrame) -> list:
-    """Validate required columns and return the covariates actually present."""
+    """
+    Check that the required metadata columns exist and find which covariates
+    are available.
+
+    Args:
+        obs: Nucleus metadata (obs) from the .h5ad file.
+
+    Returns:
+        list: Names of the COVARIATES present in obs. Missing ones are reported
+            with a warning and skipped.
+
+    Raises:
+        KeyError: If the condition, subclass or donor column is missing.
+    """
     for col in (COND_COL, SUBCLASS_COL, DONOR_COL):
         if col not in obs.columns:
             raise KeyError(
@@ -121,12 +143,18 @@ def check_columns(obs: pd.DataFrame) -> list:
 # ==================================================
 def build_groups(obs: pd.DataFrame):
     """
-    Assign each nucleus to a (subclass, donor) group.
+    Assign each nucleus to a (subclass, donor) group. Nuclei outside GROUPS or
+    without subclass/donor are excluded.
+
+    Args:
+        obs: Nucleus metadata (obs) from the .h5ad file.
 
     Returns:
-        codes     : int array (n_obs,), group code per nucleus (-1 = excluded).
-        group_meta: DataFrame indexed by group code with subclass, donor,
-                    condition, covariates and n_nuclei.
+        tuple:
+            - np.ndarray: Group code per nucleus, shape (n_obs,), int64;
+              -1 marks excluded nuclei.
+            - pd.DataFrame: Group metadata indexed by group code (0..n_groups-1),
+              with subclass, donor, condition, covariates and n_nuclei.
     """
     keep = (
         obs[COND_COL].isin(GROUPS)
@@ -163,8 +191,20 @@ def build_groups(obs: pd.DataFrame):
 def accumulate_pass(path: Path, codes: np.ndarray, batch_codes: np.ndarray,
                     n_peaks: int, chunk_size: int) -> np.ndarray:
     """
-    One streaming pass over the backed matrix, summing counts for the groups in
-    `batch_codes` only. Returns a dense (len(batch_codes) x n_peaks) accumulator.
+    Make one streaming pass over the backed count matrix, summing the counts of
+    the nuclei that belong to the groups in batch_codes. Only one chunk of rows
+    is held in memory at a time.
+
+    Args:
+        path: Path to the .h5ad file (opened in backed mode).
+        codes: Group code per nucleus, as returned by build_groups (-1 = excluded).
+        batch_codes: Sorted group codes to accumulate in this pass.
+        n_peaks: Number of peaks (columns of the count matrix).
+        chunk_size: Number of nuclei read per step.
+
+    Returns:
+        np.ndarray: Summed counts, shape (len(batch_codes), n_peaks), float32.
+            Row i corresponds to batch_codes[i].
     """
     n_groups = batch_codes.shape[0]
     acc = np.zeros((n_groups, n_peaks), dtype=np.float32)
@@ -201,7 +241,18 @@ def accumulate_pass(path: Path, codes: np.ndarray, batch_codes: np.ndarray,
 
 
 def plan_batches(group_meta: pd.DataFrame, n_peaks: int) -> list:
-    """Group subclasses into batches whose accumulator fits MEM_BUDGET_GB."""
+    """
+    Split the subclasses into batches whose accumulator fits in MEM_BUDGET_GB.
+    All groups of a subclass always stay in the same batch.
+
+    Args:
+        group_meta: Group metadata, as returned by build_groups.
+        n_peaks: Number of peaks (columns of the accumulator).
+
+    Returns:
+        list: One list of subclass names per batch; each batch is one
+            streaming pass over the file.
+    """
     max_groups = max(1, int(MEM_BUDGET_GB * 1e9 / (n_peaks * 4)))
     batches, current, used = [], [], 0
     for subclass, sub_meta in group_meta.groupby(SUBCLASS_COL, observed=True):
@@ -226,7 +277,29 @@ def plan_batches(group_meta: pd.DataFrame, n_peaks: int) -> list:
 def write_subclass(subclass: str, acc: np.ndarray, local_codes: np.ndarray,
                    group_meta: pd.DataFrame, var: pd.DataFrame,
                    covariates: list, output_dir: Path) -> pd.DataFrame:
-    """Slice the accumulator for one subclass, filter and write outputs."""
+    """
+    Build the per-donor pseudobulk of one subclass, drop donors with fewer than
+    MIN_NUCLEI nuclei and write the outputs.
+
+    Args:
+        subclass: Subclass name.
+        acc: Summed counts of this subclass only, shape (n_donors, n_peaks),
+            rows aligned to local_codes.
+        local_codes: Group codes of this subclass (one per donor).
+        group_meta: Group metadata, as returned by build_groups.
+        var: Peak metadata (var) of the .h5ad file.
+        covariates: Covariate columns to copy into colData.
+        output_dir: Directory for the output files.
+
+    Returns:
+        pd.DataFrame: One row per donor (kept or not) with condition, covariates,
+            subclass, n_nuclei, total_counts and passed_filter.
+
+    Writes:
+        pseudobulk_{subclass}.h5ad: Donors x peaks summed integer counts,
+            colData in obs.
+        colData_{subclass}.csv: colData of the kept donors.
+    """
     sub_meta = group_meta.loc[local_codes].copy()
     donors = sub_meta[DONOR_COL].astype(str).to_numpy()
     mat = acc  # rows already aligned to local_codes order
@@ -268,7 +341,25 @@ def write_subclass(subclass: str, acc: np.ndarray, local_codes: np.ndarray,
 # QC plots of the counts
 # ==================================================
 def plot_counts(summary: pd.DataFrame, fig_dir: Path) -> None:
-    """Draw QC figures describing the pseudobulk counts."""
+    """
+    Draw QC figures of the pseudobulk counts, using only donors that passed
+    the filter.
+
+    Args:
+        summary: Concatenated outputs of write_subclass (one row per donor x
+            subclass).
+        fig_dir: Directory for the figures.
+
+    Returns:
+        None
+
+    Writes:
+        nuclei_per_donor_subclass.png: Heatmap of log10 nuclei per donor x subclass.
+        library_size_per_condition.png: Boxplot of pseudobulk library size per
+            condition.
+        donors_per_condition_subclass.png: Stacked bars of donors per condition
+            in each subclass.
+    """
     fig_dir.mkdir(parents=True, exist_ok=True)
     kept = summary[summary["passed_filter"]].copy()
     if kept.empty:
@@ -331,6 +422,22 @@ def plot_counts(summary: pd.DataFrame, fig_dir: Path) -> None:
 # Main
 # ==================================================
 def main():
+    """
+    Run the full pseudobulk pipeline: group nuclei, aggregate counts per
+    (subclass, donor) in streaming passes, write per-subclass files, the
+    summary table and the QC figures.
+
+    Args:
+        None. Paths and parameters are the module constants.
+
+    Returns:
+        None
+
+    Writes:
+        In OUTPUT_DIR: pseudobulk_{subclass}.h5ad, colData_{subclass}.csv and
+            pseudobulk_summary.csv.
+        In FIG_DIR: the QC figures of plot_counts.
+    """
     print("Starting per-donor pseudobulk aggregation (streaming) ...")
     if not INPUT_FILE.exists():
         raise FileNotFoundError(f"Input file not found: {INPUT_FILE}")
