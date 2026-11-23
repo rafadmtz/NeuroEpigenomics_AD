@@ -11,7 +11,9 @@ dependencies:
   - h5py
   - anndata
   - scanpy
+  - polars
   - matplotlib
+  - seaborn
   - joblib
   - ipykernel
   - snapatac2
