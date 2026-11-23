@@ -6,6 +6,8 @@
 Takes the accessibility peak coordinates (atac_peaks.bed) generated in step 01 
 and intersects them with the RepeatMasker database (rmsk.txt.gz) from step 00.
 
+Requires having previously run src/00_download_data.py and src/01_metadata_analysis.py
+
 Workflow:
   1. Reads and formats rmsk.txt.gz (handling UCSC headers) into an 8-column BED.
   2. Filters by exact TE classes (LINE, SINE, LTR, DNA, Retroposon) without 
@@ -35,6 +37,10 @@ Usage:
   
   Or import as a module and call the main() function.
 """
+
+#==================================================
+# Libraries used
+#==================================================
 
 import gzip
 import shutil
@@ -75,13 +81,29 @@ TE_CLASSES = ['LINE', 'SINE', 'LTR', 'DNA', 'Retroposon']
 # Functions
 #==================================================
 def log_print(msg):
-    """Prints a message and instantly appends it to the log file."""
+    """
+    Print a message and append it immediately to the log file.
+
+    Parameters
+    ----------
+    msg : str
+        Message to print and log.
+    """
     print(msg)
     with open(LOG_PATH, 'a') as f:
         f.write(msg + "\n")
 
 def check_dependencies():
-    """Ensures bedtools is available and inputs exist."""
+    """
+    Check that bedtools is available and that the inputs exist.
+
+    Raises
+    ------
+    EnvironmentError
+        If bedtools is not in PATH.
+    FileNotFoundError
+        If atac_peaks.bed or rmsk.txt.gz is missing.
+    """
     if not shutil.which("bedtools"):
         raise EnvironmentError(
             "CRITICAL ERROR: 'bedtools' is not installed or not in PATH. "
@@ -95,8 +117,15 @@ def check_dependencies():
 
 def format_rmsk():
     """
-    Reads UCSC rmsk dump, detecting headers dynamically, filters it, 
-    and converts it to an 8-column BED keeping milliDiv for young TE divergence.
+    Convert the UCSC RepeatMasker table into a filtered, sorted BED file.
+
+    The header line is detected automatically. Only canonical chromosomes and
+    the classes in TE_CLASSES are kept, and the class is prepended to the
+    family (e.g. "LINE/L1") to avoid name collisions between classes.
+    milliDiv is kept to estimate the age of each TE.
+
+    Saves rmsk_filtered.bed with columns chr, start, end, repName, milliDiv,
+    strand, repFamily and repClass.
     """
     log_print(f"\nReading raw RepeatMasker annotation: {RMSK_PATH.name}...")
     
@@ -129,7 +158,14 @@ def format_rmsk():
     log_print(f"-> Filtered TE BED saved to: {RMSK_BED_PATH.name}")
 
 def extract_peak_centers():
-    """Calculates the geometric center of each peak and sorts them strictly."""
+    """
+    Write the 1 bp geometric center of every peak as a sorted BED file.
+
+    Using the center instead of the whole peak avoids a bias towards long
+    peaks, which would overlap TEs more often just because of their length.
+
+    Saves atac_peaks_centers.bed with columns chr, center, center + 1 and peak_id.
+    """
     log_print("\nExtracting sorted peak centers (1 bp) to prevent size bias...")
     peaks = pd.read_csv(PEAKS_BED_PATH, sep="\t", header=None, names=["chr", "start", "end", "peak_id"])
     mid = (peaks["start"] + peaks["end"]) // 2
@@ -141,7 +177,16 @@ def extract_peak_centers():
     log_print(f"-> Peak centers BED saved to: {CENTERS_BED_PATH.name}")
 
 def run_intersect():
-    """Runs bedtools intersect mapping the 1bp peak center against the TEs."""
+    """
+    Intersect the peak centers with the TEs using `bedtools intersect -sorted -wo`.
+
+    Saves raw_intersect.bed, with one row per peak center x overlapping TE.
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        If bedtools fails.
+    """
     log_print("\nRunning bedtools intersect...")
     log_print(f"  - File A (Peak Centers): {CENTERS_BED_PATH.name}")
     log_print(f"  - File B (TEs):          {RMSK_BED_PATH.name}")
@@ -164,7 +209,17 @@ def run_intersect():
         raise
 
 def process_intersection():
-    """Processes the intersection to create full binary matrices and detailed tables."""
+    """
+    Build the detailed overlap table and the binary TE matrices.
+
+    The original peak coordinates are restored, and the matrices include
+    every peak (peaks without TE have all columns set to 0). Saves:
+
+      - peak_te_overlaps.csv: one row per peak x TE (peak_id, peak
+        coordinates, repName, repFamily, repClass, milliDiv, strand_te).
+      - binary_matrix_peaks_te_class.csv: peaks x TE class (0/1) plus any_TE.
+      - binary_matrix_peaks_te_family.csv: peaks x TE family (0/1) plus any_TE.
+    """
     log_print("\nProcessing intersection results...")
     
     cols = [
@@ -225,6 +280,11 @@ def process_intersection():
 #==================================================
 def main():
     # Safe cleanup of specific script outputs to prevent leftover files
+    """
+    Run the whole step 05: clean previous outputs, check inputs, format the
+    RepeatMasker table, intersect it with the peak centers and build the
+    TE tables.
+    """
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for p in OUTPUTS:
         p.unlink(missing_ok=True)

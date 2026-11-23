@@ -70,11 +70,29 @@ log_lines = []
 #==================================================
 
 def log_print(msg):
+    """
+    Print a message and keep it in log_lines for the run log.
+
+    Parameters
+    ----------
+    msg : str
+        Message to print and log.
+    """
     print(msg)
     log_lines.append(msg)
 
 def graph_subclass_vs_severity(obs):
-    """Generates a stacked bar chart of the absolute number of cells by Subclass and Severity."""
+    """
+    Plot the number of nuclei per subclass, stacked by severity group.
+
+    Subclasses are sorted from the most to the least nuclei, and the
+    severity groups follow SEV_COLORS.
+
+    Parameters
+    ----------
+    obs : pd.DataFrame
+        Nuclei-level metadata with Subclass and Severity_Group.
+    """
     log_print("\nGenerating absolute cell count by Subclass stacked by severity...")
     
     # Define the correct order of severity including neurotypical references
@@ -113,7 +131,21 @@ def graph_subclass_vs_severity(obs):
     log_print(f"-> Saved to: {out_path.name}")
 
 def graph_supertypes_composition(obs):
-    """Stacked bars of supertypes with severity marks and low N warnings."""
+    """
+    Plot the supertype composition of each subclass of POPULATIONS per donor.
+
+    Donors are sorted by Continuous Pseudo-progression Score (donors without
+    it are excluded). Supertypes below 3% of the subclass are grouped as
+    "Others". A coloured square under each bar shows the severity group, and
+    the number of nuclei is written above each bar (in red when below
+    NUCLEI_THRESHOLD).
+
+    Parameters
+    ----------
+    obs : pd.DataFrame
+        Nuclei-level metadata with Donor ID, Severity_Group, Continuous
+        Pseudo-progression Score, Subclass and Supertype.
+    """
     log_print("\nGenerating Supertypes composition...")
     
     # Explicitly exclude donors without CPS and sort
@@ -148,11 +180,11 @@ def graph_supertypes_composition(obs):
         fig, ax = plt.subplots(figsize=(14, 7))
         plot_table.plot(kind='bar', stacked=True, colormap='tab20', width=0.85, ax=ax)
         
-        # Color stripe for severity (squares below the X axis)[cite: 1]
+        # Color stripe for severity (squares below the X axis)
         axis_colors = [SEV_COLORS.get(sev_dict.get(d, 'Unknown'), '#808080') for d in plot_table.index]
         ax.scatter(range(len(plot_table)), [-4] * len(plot_table), color=axis_colors, marker='s', s=80, clip_on=False)
         
-        # Low N Warnings (above each bar)[cite: 1]
+        # Low N Warnings (above each bar)
         # We calculate the number of nuclei for this donor and subclass on the fly
         n_dict = df_sub['Donor ID'].value_counts().to_dict()
         for i, d in enumerate(plot_table.index):
@@ -180,6 +212,9 @@ def graph_supertypes_composition(obs):
 #==================================================
 
 def main():
+    """
+    Load the nuclei-level metadata of step 01, make both graphs and save the log.
+    """
     if not nuclei_csv.exists():
         print(f"Error: {nuclei_csv} not found")
         return
