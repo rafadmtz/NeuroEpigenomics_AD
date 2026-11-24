@@ -103,9 +103,9 @@ An MIT-licensed repository with the scripts, the Conda environment, documentatio
 | SEA-AD (Allen Institute) | SEAAD_MTG_ATACseq_final-nuclei.2024-12-06.h5ad | https://sea-ad-single-cell-profiling.s3.amazonaws.com/MTG/ATACseq/SEAAD_MTG_ATACseq_final-nuclei.2024-12-06.h5ad | 15/10/2026 | Allen Institute Terms of Use; cite Gabitto et al. (2024) |
 | SEA-AD (Allen Institute) | SEAAD_MTG_ATACseq_all-nuclei_metadata.2024-12-06.csv | https://sea-ad-single-cell-profiling.s3.amazonaws.com/MTG/ATACseq/SEAAD_MTG_ATACseq_all-nuclei_metadata.2024-12-06.csv | 15/10/2026 | Allen Institute Terms of Use |
 | UCSC Genome Browser | hg38 rmsk table (RepeatMasker 3.0.1, Repbase 2010-03-02) | https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/rmsk.txt.gz | 15/10/2026 | Free for academic use |
-| UCSC Genome Browser | hg38 genome FASTA | https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz | [dd/mm/2026] | Free for academic use |
-| GENCODE | Release 50, basic annotation | https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/ | [dd/mm/2026] | Open access |
-| MSigDB (Broad Institute) | 2026.2.Hs, Hallmark and GO BP | https://data.broadinstitute.org/gsea-msigdb/msigdb/release/2026.2.Hs | [dd/mm/2026] | MSigDB license |
+| UCSC Genome Browser | hg38 genome FASTA | https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz | 22/11/2026 | Free for academic use |
+| GENCODE | Release 50, basic annotation | https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/ | 23/11/2026 | Open access |
+| MSigDB (Broad Institute) | 2026.2.Hs, Hallmark and GO BP | https://data.broadinstitute.org/gsea-msigdb/msigdb/release/2026.2.Hs | 23/11/2026 | MSigDB license |
 
 ### 8.2 Data characteristics
 
@@ -173,7 +173,9 @@ Each script checks its inputs and required columns before running. Metadata cons
 
 | Member | Main responsibility | Review responsibility |
 |:--|:--|:--|
-| [Name] | [Responsibility] | [What or whom they will review] |
+| Rafael Díaz Martínez | Project design; matrix partitioning (02), UMAP exploration (04), peak table (07), TE family analysis (09) and exploratory notebooks | Project progress, README and report |
+| Sixto N. González Morales | Data download (00), metadata integration and cohort plots (01, 01b), peak–TE annotation (05), functional and TE enrichment (08) and codemeta.json | Project progress, README and report |
+| Santiago Martínez Enciso | Pseudobulk aggregation (03), differential accessibility (06) and Conda environment (environment.yml) | Project progress, README and report |
 
 ### 10.2 Risks and alternatives
 
@@ -209,9 +211,9 @@ We built a reproducible workflow that runs on the full SEA-AD MTG snATAC-seq dat
 **Data:** Not redistributed; obtained with `python src/00_download_data.py` from the public sources in section 8.1.  
 **Code license:** MIT (see LICENSE). Source data keep their own terms of use.  
 **How to cite:** Díaz Martínez, R., Martínez Enciso, S. and González Morales, S. N. (2026). *NeuroEpigenomics_AD: Epigenomic dynamics during Alzheimer's disease progression*. GitHub repository. https://github.com/rafadmtz/NeuroEpigenomics_AD (metadata in docs/CITATION.cff).  
-**Version or release:** [URL]
+**Version or release:** v1.0.0 (https://github.com/rafadmtz/NeuroEpigenomics_AD/releases/tag/v1.0.0)
 
 ## 15. References
 
 1. Gabitto, M. I. et al. (2024). Integrated multimodal cell atlas of Alzheimer's disease. *Nature Neuroscience*, 27, 2366–2383. https://doi.org/10.1038/s41593-024-01774-5
-2. Liu, et al. (2026). Tau aggregates cause reactivation of transposable DNA elements, leading to Z-RNA–ZBP1-mediated neuronal death. *Nature Neuroscience*. https://doi.org/10.1038/s41593-026-02299-9
+2. Liu, W., Wu, S.-A., Zhang, B.-X. et al. (2026). Tau aggregates cause reactivation of transposable DNA elements, leading to Z-RNA–ZBP1-mediated neuronal death. *Nature Neuroscience*, 29, 1559–1572. https://doi.org/10.1038/s41593-026-02299-9
