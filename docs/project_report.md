@@ -5,7 +5,7 @@
 | Item | Information |
 |:--|:--|
 | Member | Rafael Díaz Martínez (rafadiaz@lcg.unam.mx) |
-| Member | Santiago Martínez Enciso (santiago.marenc@gmail.com) |
+| Member | Santiago Martínez Enciso (smartine@lcg.unam.mx) |
 | Member | Sixto Netzahualcóyotl González Morales (sixtogm@lcg.unam.mx) |
 | Creation date | 25/08/2026 |
 | Last updated | 23/11/2026 |
