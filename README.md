@@ -5,7 +5,7 @@ track chromatin accessibility changes associated with the reactivation of
 transposable elements (TEs) in Alzheimer's disease (AD).
 
 For the project rationale, research questions, methodology and results, see the
-[project report](docs/reporte-proyecto.md).
+[project report](docs/project_report.md).
 
 ## Features
 
@@ -29,19 +29,20 @@ For the project rationale, research questions, methodology and results, see the
 - Functional (Hallmark, GO Biological Process) and TE enrichment of
   differentially accessible peaks, adjusted for accessibility, GC content,
   peak width and distance to the nearest TSS.
+- Over- and under-representation of TE families (LINE, LTR, SINE) and LTR/ERV1
+  subfamilies among differentially accessible peaks.
 
 ## Repository structure
 
 ```text
 NeuroEpigenomics_AD/
 ├── data/            # Local data (large files are not tracked by Git)
-├── docs/            # Report and documentation
+├── docs/            # Report and citation metadata (CITATION.cff)
 ├── notebooks/       # Exploratory analyses
 ├── results/         # Generated tables and figures
 ├── src/             # Source code (pipeline scripts)
 ├── tests/           # Tests
 ├── environment.yml  # Conda environment definition
-├── CITATION.cff     # Citation metadata
 ├── LICENSE          # License
 └── README.md        # Introduction and quick-start guide
 ```
@@ -143,6 +144,7 @@ python src/05_annotate_peaks_with_tes.py
 python src/06_differential_accessibility.py
 python src/07_build_peak_table.py
 python src/08_functional_and_te_enrichment.py
+python src/09_te_analysis.py
 ```
 
 The longer steps can be run in the background while saving a log, for example:
@@ -171,29 +173,30 @@ function.
 | `07_build_peak_table.py` | Per-peak tables (DA + TE + GC) for each subclass and contrast | `results/07_build_peak_table/` |
 | `08_functional_and_te_enrichment.py` | Peak annotation, functional and TE enrichment tables | `results/08_enrichment/` |
 | `08_functional_and_te_enrichment.py` | Functional enrichment dotplots | `results/08_graphs/` |
+| `09_te_analysis.py` | TE family and ERV1 subfamily enrichment tables | `results/09_te_analysis/` |
+| `09_te_analysis.py` | Family bubble plots and ERV1 subfamily plot | `results/figures/09_te_analysis/` |
 
 ## Documentation
 
-- [Project report](docs/reporte-proyecto.md)
-- [Citation metadata](CITATION.cff)
+- [Project report](docs/project_report.md)
+- [Citation metadata](docs/CITATION.cff)
 
 ## Team
 
 - Rafael Díaz Martínez
 - Santiago Martínez Enciso
-- Sixto Nezahualcoyotl Gonzales Morales
+- Sixto Netzahualcóyotl González Morales
 
 ## Citation
 
-This software is under active development. If you use it before a formal
-release or associated publication is available, please cite the repository:
+If you use this software, please cite the repository (release v1.0.0):
 
-> Díaz Martínez, R., Martínez Enciso, S. and Gonzales Morales, S. N. (2026).
+> Díaz Martínez, R., Martínez Enciso, S. and González Morales, S. N. (2026).
 > *NeuroEpigenomics_AD: Epigenomic dynamics during Alzheimer's disease
 > progression*. GitHub repository.
 > [https://github.com/rafadmtz/NeuroEpigenomics_AD](https://github.com/rafadmtz/NeuroEpigenomics_AD)
 
-Citation metadata are provided in [CITATION.cff](CITATION.cff); GitHub uses
+Citation metadata are provided in [CITATION.cff](docs/CITATION.cff); GitHub uses
 this file to show the **Cite this repository** option on the repository page.
 
 If you use the SEA-AD data, please also cite the original atlas:
