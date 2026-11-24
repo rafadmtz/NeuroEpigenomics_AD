@@ -11,8 +11,8 @@ authors:
     given-names: "Rafael"
   - family-names: "Martínez Enciso"
     given-names: "Santiago"
-  - family-names: "Gonzales Morales"
-    given-names: "Sixto Nezahualcoyotl"
+  - family-names: "González Morales"
+    given-names: "Sixto Netzahualcóyotl"
 repository-code: "https://github.com/rafadmtz/NeuroEpigenomics_AD"
 license: MIT
 date-released: "2026-10-19"
