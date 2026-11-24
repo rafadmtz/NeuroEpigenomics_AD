@@ -86,6 +86,17 @@ def compute_gc() -> pl.DataFrame:
     -------
     pl.DataFrame
         One row per peak: peak_id, gc.
+
+    Raises
+    ------
+    EnvironmentError
+        If bedtools is needed but is not in PATH.
+    FileNotFoundError
+        If the genome or the peaks BED is missing.
+    RuntimeError
+        If `bedtools nuc` fails.
+    ValueError
+        If peaks_nuc.txt does not have the bedtools nuc columns.
     """
 
     if not NUC_PATH.exists() or NUC_PATH.stat().st_size == 0:
@@ -93,15 +104,26 @@ def compute_gc() -> pl.DataFrame:
         if not shutil.which("bedtools"):
             raise EnvironmentError("bedtools is not in PATH (see environment.yml)")
 
+        for path in [GENOME_FA, PEAKS_BED]:
+            if not path.exists():
+                raise FileNotFoundError(f"Input of bedtools nuc not found: {path}")
+
         cmd = ["bedtools", "nuc", "-fi", str(GENOME_FA), "-bed", str(PEAKS_BED)]
 
-        with open(NUC_PATH, "w") as out_file:
-            subprocess.run(cmd, stdout=out_file, check=True)
+        try:
+            with open(NUC_PATH, "w") as out_file:
+                subprocess.run(cmd, stdout=out_file, check=True)
+        except subprocess.CalledProcessError as e:
+            NUC_PATH.unlink(missing_ok=True)  # do not leave an empty file behind
+            raise RuntimeError("bedtools nuc failed, check the genome and the peaks BED") from e
 
-    df_gc = pl.read_csv(NUC_PATH, separator="\t").select(
-        pl.col("4_usercol").alias("peak_id"),
-        pl.col("6_pct_gc").alias("gc")
-    )
+    try:
+        df_gc = pl.read_csv(NUC_PATH, separator="\t").select(
+            pl.col("4_usercol").alias("peak_id"),
+            pl.col("6_pct_gc").alias("gc")
+        )
+    except pl.exceptions.ColumnNotFoundError as e:
+        raise ValueError(f"{NUC_PATH} does not look like bedtools nuc output") from e
 
     return df_gc
 
@@ -113,10 +135,22 @@ def read_te_matrix() -> pl.DataFrame:
     -------
     pl.DataFrame
         peak_id, any_TE and one 0/1 column per TE class and family.
+
+    Raises
+    ------
+    FileNotFoundError
+        If a matrix is missing.
+    ValueError
+        If the family matrix has no any_TE column.
     """
 
-    df_class = pl.read_csv(CLASS_MATRIX)
-    df_family = pl.read_csv(FAMILY_MATRIX).drop("any_TE")
+    try:
+        df_class = pl.read_csv(CLASS_MATRIX)
+        df_family = pl.read_csv(FAMILY_MATRIX).drop("any_TE")
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"TE matrix not found, run step 05 first: {e}") from e
+    except pl.exceptions.ColumnNotFoundError as e:
+        raise ValueError(f"Unexpected columns in the TE matrices: {e}") from e
 
     return df_class.join(df_family, on="peak_id", how="left")
 
@@ -140,16 +174,32 @@ def read_da(subclass: str, te_matrix: pl.DataFrame, df_gc: pl.DataFrame) -> pl.D
     -------
     pl.DataFrame
         One row per tested peak, with is_up, is_down and is_ns.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the DA file of `subclass` is missing.
+    ValueError
+        If the file has no padj column or no tested peaks.
     """
 
-    df_da= pl.read_csv(
-        DA_DIR / f"da_{subclass}_{CONTRAST}.csv.gz"
-        )
+    da_path = DA_DIR / f"da_{subclass}_{CONTRAST}.csv.gz"
 
-    df_da = df_da.filter(
-        pl.col("padj").is_not_null() &
-        pl.col("padj").is_not_nan()
-    )
+    try:
+        df_da = pl.read_csv(da_path)
+        df_da = df_da.filter(
+            pl.col("padj").is_not_null() &
+            pl.col("padj").is_not_nan()
+        )
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"DA results of {subclass} not found: {da_path}") from e
+    except pl.exceptions.ColumnNotFoundError as e:
+        raise ValueError(f"{da_path.name} has no padj column") from e
+    except pl.exceptions.InvalidOperationError as e:
+        raise ValueError(f"padj is not numeric in {da_path.name}") from e
+
+    if df_da.is_empty():
+        raise ValueError(f"No tested peaks (padj) for {subclass}")
 
     te_cols = [col for col in te_matrix.columns if col != "peak_id"]
 
@@ -387,7 +437,11 @@ def main():
 
     for subclass in SUBCLASSES:
 
-        df_subclass= read_da(subclass, te_matrix, df_gc)
+        try:
+            df_subclass= read_da(subclass, te_matrix, df_gc)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Skipping {subclass}: {e}")
+            continue
 
         df_subclass.write_parquet(
             OUT_DIR / f"peak_table_{subclass}_{CONTRAST}.parquet"
@@ -395,20 +449,31 @@ def main():
 
         df_summary.append(df_subclass)
 
+    if not df_summary:
+        raise RuntimeError("No subclass could be processed, check results/06_differential_accessibility")
+
     df_summary = pl.concat(df_summary)
-    
-    peak_overlap= (
-        pl.read_csv(TE_DIR / "peak_te_overlaps.csv")
-        .select("peak_id", "repClass")
-        .unique()
-    )
-    
+
+    try:
+        peak_overlap= (
+            pl.read_csv(TE_DIR / "peak_te_overlaps.csv")
+            .select("peak_id", "repClass")
+            .unique()
+        )
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"TE overlaps not found, run step 05 first: {e}") from e
+    except pl.exceptions.ColumnNotFoundError as e:
+        raise ValueError(f"peak_te_overlaps.csv needs the columns peak_id and repClass: {e}") from e
+
     df_plot = df_summary.join(
         peak_overlap,
         on="peak_id",
         how="inner"
     )
-    
+
+    if df_plot.is_empty():
+        raise ValueError("No peak overlaps a TE, check that peak_id has the same format in both tables")
+
     summarize_results(df_plot)
     
     lfcs= [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
